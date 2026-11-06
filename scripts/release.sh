@@ -5,13 +5,19 @@
 #   1. Bump the version in app/src-tauri/tauri.conf.json, app/src-tauri/Cargo.toml and app/package.json.
 #   2. scripts/release.sh "What changed, in a sentence or two"
 #
-# One-time setup is in README.md ("Releasing"). Needs:
+# Maintainer only. Forks: set AGENTBOTS_REPO and use your own certificate and updater key.
+# One-time setup on the release Mac:
 #   - gh, logged in with write access to the repo
-#   - APPLE_SIGNING_IDENTITY: your "Developer ID Application: Name (TEAMID)" certificate in the keychain
+#   - APPLE_SIGNING_IDENTITY: a "Developer ID Application: Name (TEAMID)" certificate in the keychain
+#     (create it in your Apple Developer account; security find-identity -v -p codesigning shows the name)
 #   - notarization credentials: APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH,
 #     or APPLE_ID + APPLE_PASSWORD (app-specific password) + APPLE_TEAM_ID
-#   - the updater signing key at ~/.tauri/agent-bots.key (override with AGENTBOTS_KEY), whose public
-#     half is in tauri.conf.json. Lose the key and installed apps can't update.
+#   - the updater signing key at ~/.tauri/agent-bots.key (override with AGENTBOTS_KEY). Create it with
+#     `cd app && pnpm tauri signer generate -w ~/.tauri/agent-bots.key`, paste the .pub contents into
+#     plugins.updater.pubkey in tauri.conf.json, and keep a backup of the private key and its password
+#     (TAURI_SIGNING_PRIVATE_KEY_PASSWORD). Lose either and installed apps can't update.
+#
+# The newest .dmg is always at https://github.com/$REPO/releases/latest/download/Agent-Bots.dmg.
 set -euo pipefail
 
 REPO="${AGENTBOTS_REPO:-Alxmerino/agent-bots}"
@@ -42,6 +48,17 @@ pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
 B=src-tauri/target/release/bundle
 DMG="$(ls "$B"/dmg/*_"$VERSION"_aarch64.dmg)"
 spctl -a -t exec -vv "$B/macos/Agent Bots.app" || die "Gatekeeper rejects the app; check signing and notarization."
+
+# Tauri notarizes only the .app; notarize and staple the .dmg too so the download itself passes Gatekeeper.
+if [[ -n "${APPLE_API_KEY:-}" ]]; then
+  NOTARY=(--key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER")
+else
+  NOTARY=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
+fi
+xcrun notarytool submit "$DMG" "${NOTARY[@]}" --wait | tee /dev/stderr | grep -q 'status: Accepted' ||
+  die "Apple rejected the .dmg; run xcrun notarytool log <id> for details."
+xcrun stapler staple "$DMG"
+spctl -a -t open --context context:primary-signature -vv "$DMG" || die "Gatekeeper rejects the .dmg."
 
 OUT="$(mktemp -d)"
 # Fixed asset names, so https://github.com/$REPO/releases/latest/download/Agent-Bots.dmg always works.

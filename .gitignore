@@ -1,0 +1,5 @@
+# Local planning notes and agent instructions (not part of the project)
+openspec/
+.claude/
+CLAUDE.md
+AGENTS.md

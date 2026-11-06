@@ -7,7 +7,6 @@ export interface Session {
   state: AgentState;
   last_tool: string;
   subagents: Record<string, { type: string; since: number }>;
-  term_program?: string | null;
 }
 
 export interface Config {

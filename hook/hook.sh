@@ -22,7 +22,7 @@ if [[ "$event" == "SessionEnd" ]]; then
 fi
 
 # Find the Claude Code process: walk up the tree until the process name is "claude".
-pid="" tty=""
+pid=""
 if [[ ! -f "$file" ]]; then
   p=$PPID
   for _ in 1 2 3 4 5 6; do
@@ -30,7 +30,6 @@ if [[ ! -f "$file" ]]; then
     read -r ppid comm < <(ps -o ppid=,comm= -p "$p")
     if [[ "$(basename "$comm" | tr '[:upper:]' '[:lower:]')" == "claude" ]]; then
       pid=$p
-      tty="$(ps -o tty= -p "$p" | tr -d ' ')"
       break
     fi
     p=$ppid
@@ -62,8 +61,7 @@ tmp="$DIR/.tmp.$sid.$$"
 printf '%s' "$input" | "$JQ" \
   --argjson prev "$prev" \
   --arg now "$now" --arg name "$name" \
-  --arg pid "$pid" --arg tty "$tty" \
-  --arg muxy "${MUXY_SESSION_ID:-}" --arg term "${TERM_PROGRAM:-}" '
+  --arg pid "$pid" '
   . as $in
   | ($now | tonumber) as $t
   | ($prev + {
@@ -75,9 +73,6 @@ printf '%s' "$input" | "$JQ" \
       last_tool: ($prev.last_tool // ""),
       subagents: ($prev.subagents // {}),
       pid: ($prev.pid // (if $pid == "" then null else ($pid | tonumber) end)),
-      tty: ($prev.tty // (if $tty == "" or $tty == "??" then null else $tty end)),
-      muxy_session_id: ($prev.muxy_session_id // (if $muxy == "" then null else $muxy end)),
-      term_program: ($prev.term_program // (if $term == "" then null else $term end)),
       updated: $t
     })
   | if   $in.hook_event_name == "SessionStart"     then .state = "idle"

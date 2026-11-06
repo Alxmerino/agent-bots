@@ -6,7 +6,7 @@ Installing takes about two minutes, and you won't need the Terminal.
 
 ## Before you start
 
-You'll need a Mac with Apple silicon (an M1 or newer chip) running macOS 15 Sequoia or later. To check, open the Apple menu, choose **About This Mac**, and look at **Chip** and **macOS**. You'll also need Claude Code running in a terminal app (Terminal, iTerm, Ghostty, or Muxy). Agent Bots doesn't work with the Claude desktop app, so chats, Cowork, and the desktop app's Code tab won't get a bot.
+You'll need a Mac with Apple silicon (an M1 or newer chip) running macOS 15 Sequoia or later. To check, open the Apple menu, choose **About This Mac**, and look at **Chip** and **macOS**. You'll also need Claude Code running in a terminal app (any one works). Agent Bots doesn't work with the Claude desktop app, so chats, Cowork, and the desktop app's Code tab won't get a bot.
 
 ## Install
 
@@ -19,9 +19,9 @@ A robot icon now sits in your menu bar. Start a Claude Code session, or send a m
 
 ## Using it
 
-Hover over a bot to see its name, which project it's working in, and what it's doing. Click a bot to bring its session to the front. When a session ends, its bot dies dramatically and floats away as a ghost. That's how it tells you the session is over, not a sign that something crashed.
+Hover over a bot to see its name, which project it's working in, and what it's doing. When a session ends, its bot dies dramatically and floats away as a ghost. That's how it tells you the session is over, not a sign that something crashed.
 
-Click the robot icon in your menu bar to change how the bots look (robots, critters, dogs, cats, or aliens), move them to the bottom right of your screen, make them bigger or smaller, slow them down, or hide the name tags. Click any session listed in the menu to jump to it.
+Click the robot icon in your menu bar to change how the bots look (robots, critters, dogs, cats, or aliens), move them to the bottom right of your screen, make them bigger or smaller, slow them down, or hide the name tags.
 
 Agent Bots starts automatically when you log in. You can turn that off with **Start at login** in the menu.
 

@@ -205,8 +205,8 @@ fn apply_visibility(app: &AppHandle, sessions: &[Value], cfg: &Config) {
     let _ = if visible { win.show() } else { win.hide() };
 }
 
-/// The window ignores the mouse except while the cursor is over a bot. The frontend hit-tests and
-/// calls `set_interactive`; Rust feeds it the cursor position because an ignoring window gets no events.
+/// The window always ignores the mouse (clicks pass through to whatever is below). Rust feeds the
+/// frontend the cursor position for hover tooltips, because an ignoring window gets no events.
 fn start_cursor_feed(app: AppHandle) {
     std::thread::spawn(move || {
         // Only send when something changed: an idle mouse costs nothing on the WebKit side.
@@ -235,11 +235,6 @@ fn start_cursor_feed(app: AppHandle) {
     });
 }
 
-#[tauri::command]
-fn set_interactive(app: AppHandle, on: bool) {
-    if let Some(w) = main_window(&app) { let _ = w.set_ignore_cursor_events(!on); }
-}
-
 /// The frontend owns the skin registry; it sends the list once so the menu can offer it.
 #[tauri::command]
 fn register_skins(app: AppHandle, skins: Vec<(String, String)>) {
@@ -256,61 +251,6 @@ fn register_skins(app: AppHandle, skins: Vec<(String, String)>) {
 fn get_state(state: tauri::State<Shared>) -> (Vec<Value>, Config) {
     let s = state.lock().unwrap();
     (s.sessions.clone(), s.config.clone())
-}
-
-// ---------- terminal focus ----------
-
-#[tauri::command]
-fn focus_session(state: tauri::State<Shared>, id: String) {
-    let s = state.lock().unwrap().sessions.iter().find(|s| s["session_id"] == id.as_str()).cloned();
-    let Some(s) = s else { return };
-    let term = s["term_program"].as_str().unwrap_or("");
-    let open = |app: &str| { let _ = std::process::Command::new("open").args(["-a", app]).spawn(); };
-    match term {
-        "muxy" => {
-            // Switch Muxy to the session's project, but only if the folder is already a Muxy project
-            // (`muxy <folder>` would otherwise add it). Muxy's CLI has no per-tab focus.
-            const MUXY: &str = "/Applications/Muxy.app/Contents/MacOS/muxy";
-            let cwd = s["cwd"].as_str().unwrap_or("").to_string();
-            std::thread::spawn(move || {
-                let known = std::process::Command::new(MUXY)
-                    .args(["project", "list", "--json"])
-                    .output()
-                    .ok()
-                    .and_then(|o| serde_json::from_slice::<Vec<Value>>(&o.stdout).ok())
-                    .is_some_and(|ps| ps.iter().any(|p| p["directory"] == cwd.as_str()));
-                if known && !cwd.is_empty() {
-                    let _ = std::process::Command::new(MUXY).arg(&cwd).status();
-                }
-                let _ = std::process::Command::new("open").args(["-a", "Muxy"]).status();
-            });
-        }
-        "ghostty" => open("Ghostty"),
-        "Apple_Terminal" => open("Terminal"),
-        "iTerm.app" => {
-            let Some(tty) = s["tty"].as_str() else { return open("iTerm") };
-            let script = format!(
-                r#"tell application "iTerm2"
-  repeat with w in windows
-    repeat with t in tabs of w
-      repeat with ss in sessions of t
-        if tty of ss is "/dev/{tty}" then
-          select w
-          tell t to select
-          tell ss to select
-          activate
-          return
-        end if
-      end repeat
-    end repeat
-  end repeat
-  activate
-end tell"#
-            );
-            let _ = std::process::Command::new("osascript").args(["-e", &script]).spawn();
-        }
-        _ => {}
-    }
 }
 
 // ---------- Claude Code connection ----------
@@ -386,8 +326,8 @@ fn build_menu(app: &AppHandle, sessions: &[Value], cfg: &Config) -> tauri::Resul
             s["project"].as_str().unwrap_or("?"),
             if subs > 0 { format!("  (+{subs})") } else { String::new() }
         );
-        let id = format!("focus:{}", s["session_id"].as_str().unwrap_or(""));
-        menu.append(&MenuItem::with_id(app, id, label, true, None::<&str>)?)?;
+        let id = format!("session:{}", s["session_id"].as_str().unwrap_or(""));
+        menu.append(&MenuItem::with_id(app, id, label, false, None::<&str>)?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
 
@@ -443,10 +383,6 @@ fn update_tray(app: &AppHandle, sessions: &[Value], cfg: &Config) {
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
-    if let Some(sid) = id.strip_prefix("focus:") {
-        focus_session(app.state::<Shared>(), sid.to_string());
-        return;
-    }
     match id {
         "quit" => return app.exit(0),
         "restart" => app.restart(),
@@ -498,7 +434,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(AppState { config, sessions, ..Default::default() }))
-        .invoke_handler(tauri::generate_handler![get_state, set_interactive, focus_session, register_skins])
+        .invoke_handler(tauri::generate_handler![get_state, register_skins])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
