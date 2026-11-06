@@ -55,8 +55,9 @@ if [[ -n "${APPLE_API_KEY:-}" ]]; then
 else
   NOTARY=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
 fi
-xcrun notarytool submit "$DMG" "${NOTARY[@]}" --wait | tee /dev/stderr | grep -q 'status: Accepted' ||
-  die "Apple rejected the .dmg; run xcrun notarytool log <id> for details."
+NOTARIZED="$(xcrun notarytool submit "$DMG" "${NOTARY[@]}" --wait)"
+echo "$NOTARIZED"
+grep -q 'status: Accepted' <<<"$NOTARIZED" || die "Apple rejected the .dmg; run xcrun notarytool log <id> for details."
 xcrun stapler staple "$DMG"
 spctl -a -t open --context context:primary-signature -vv "$DMG" || die "Gatekeeper rejects the .dmg."
 

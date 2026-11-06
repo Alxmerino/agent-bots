@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Bots: a little bot for every Claude Code session</title>
+    <meta name="description" content="Agent Bots puts a tiny pixel character on your Mac for every Claude Code session. It works while Claude works, waves when Claude needs you, and naps when the turn is done. Free and open source." />
+    <meta property="og:title" content="Agent Bots" />
+    <meta property="og:description" content="A little bot for every Claude Code session, right above your Dock." />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <script type="module" src="./src/main.ts"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="Agent Bots home">Agent Bots</a>
+      <nav aria-label="Main">
+        <a href="#states">How it works</a>
+        <a href="#styles">Styles</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/Alxmerino/agent-bots">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <h1>A little bot for every Claude Code session.</h1>
+          <p class="lede">
+            Agent Bots puts a tiny character above your Dock for each session you have running.
+            It works while Claude works, waves when Claude needs you, and naps when the turn is done.
+          </p>
+          <div class="cta">
+            <a class="btn primary" href="https://github.com/Alxmerino/agent-bots/releases/latest/download/Agent-Bots.dmg">
+              <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M7 1h2v8h2l-3 4-3-4h2zM2 13h12v2H2z"/></svg>
+              Download for Mac
+            </a>
+            <a class="btn" href="https://github.com/Alxmerino/agent-bots">View on GitHub</a>
+          </div>
+          <p class="meta">Free and open source · macOS 15+ on Apple silicon · Signed and notarized by Apple</p>
+        </div>
+
+        <figure class="desktop" aria-labelledby="desktop-caption">
+          <div class="menubar" aria-hidden="true">
+            <span class="apple"></span><span>Terminal</span><span>Shell</span><span>Edit</span>
+            <span class="tray" id="tray">2 · !1</span>
+          </div>
+          <div class="wallpaper">
+            <div class="term" aria-hidden="true">
+              <div class="term-bar"><i></i><i></i><i></i></div>
+              <pre id="term">&gt; claude</pre>
+            </div>
+            <div class="stage hero-stage" id="hero-stage"></div>
+            <div class="dock" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <figcaption id="desktop-caption" class="sr-only">An animated Mac desktop with Agent Bots walking above the Dock.</figcaption>
+        </figure>
+
+        <div class="playground" role="group" aria-labelledby="pg-title">
+          <h2 id="pg-title" class="pg-title">Try it: be Claude Code</h2>
+          <div class="pg-buttons">
+            <button type="button" data-act="new">New session</button>
+            <button type="button" data-act="prompt">Send a prompt</button>
+            <button type="button" data-act="ask">Ask permission</button>
+            <button type="button" data-act="done">Finish the turn</button>
+            <button type="button" data-act="sub">Spawn a subagent</button>
+            <button type="button" data-act="end" class="danger">End a session</button>
+          </div>
+          <p class="pg-log" id="pg-log" aria-live="polite">Hover a bot to see what it's up to.</p>
+        </div>
+        <div class="tip" id="tip" aria-hidden="true" hidden></div>
+      </section>
+
+      <section id="states" class="section">
+        <h2>Read the room at a glance</h2>
+        <p class="section-lede">Every state of a session has its own body language. No windows to check, no tabs to hunt through.</p>
+        <ul class="cards">
+          <li class="card">
+            <div class="stage" data-stage="working"></div>
+            <h3><span class="dot working" aria-hidden="true"></span>Working</h3>
+            <p>Claude is busy. Your bot runs, moonwalks, does the robot, or paints.</p>
+          </li>
+          <li class="card">
+            <div class="stage" data-stage="waiting"></div>
+            <h3><span class="dot waiting" aria-hidden="true"></span>Needs you</h3>
+            <p>Claude is waiting on a permission. Your bot hops and waves a "!" until you answer.</p>
+          </li>
+          <li class="card">
+            <div class="stage" data-stage="idle"></div>
+            <h3><span class="dot idle" aria-hidden="true"></span>Done</h3>
+            <p>The turn is finished. Your bot yawns, lies down, and sleeps.</p>
+          </li>
+          <li class="card">
+            <div class="stage" data-stage="ended"></div>
+            <h3><span class="dot ended" aria-hidden="true"></span>Session over</h3>
+            <p>The session ended. Its bot dies, dramatically, and floats off as a ghost.</p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section band">
+        <div class="band-copy">
+          <h2>Subagents tag along</h2>
+          <p>When Claude spins up subagents, they show up as smaller bots following their parent around. You can see how much help each session has called in.</p>
+        </div>
+        <div class="stage band-stage" id="sub-stage"></div>
+      </section>
+
+      <section id="styles" class="section">
+        <h2>Pick your crew</h2>
+        <p class="section-lede">Six styles, all with the same moves. Pick one to swap the bots on the desktop up top. Switch any time from the menu bar.</p>
+        <div class="styles" id="styles-grid" role="group" aria-label="Bot styles"></div>
+      </section>
+
+      <section id="install" class="section">
+        <h2>Two minutes, no Terminal</h2>
+        <ol class="steps">
+          <li>
+            <span class="num" aria-hidden="true">1</span>
+            <h3>Download</h3>
+            <p>Get the <a href="https://github.com/Alxmerino/agent-bots/releases/latest/download/Agent-Bots.dmg">.dmg</a> and drag Agent Bots into Applications.</p>
+          </li>
+          <li>
+            <span class="num" aria-hidden="true">2</span>
+            <h3>Connect</h3>
+            <p>Open it and click <strong>Connect</strong>. It adds a small hook to your Claude Code settings and backs them up first.</p>
+          </li>
+          <li>
+            <span class="num" aria-hidden="true">3</span>
+            <h3>Start a session</h3>
+            <p>Run Claude Code in any terminal. A bot shows up within a second.</p>
+          </li>
+        </ol>
+        <div class="fineprint">
+          <p><strong>Nothing leaves your Mac.</strong> The hook writes one small file per session to your home folder, and the app reads it. Updates arrive on their own.</p>
+          <p>Needs Claude Code 2.1 or newer. Disconnect any time from the menu bar, and it takes the hook back out.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="stage footer-stage" id="footer-stage"></div>
+      <div class="footer-row">
+        <p>Made by <a href="https://github.com/Alxmerino">Rene Merino</a> · <a href="https://github.com/Alxmerino/agent-bots/blob/main/LICENSE">MIT license</a> · <a href="https://github.com/Alxmerino/agent-bots/blob/main/CONTRIBUTING.md">Contribute</a></p>
+        <p class="disclaimer">Not affiliated with Anthropic. Claude and Claude Code are trademarks of Anthropic.</p>
+      </div>
+    </footer>
+  </body>
+</html>

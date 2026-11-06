@@ -1,0 +1,18 @@
+{
+  "name": "agent-bots-site",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/press-start-2p": "^5"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16"
+  }
+}
