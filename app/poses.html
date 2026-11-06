@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <!-- Dev-only: renders every activity at several timestamps for visual review. Open /poses.html on the dev server. -->
+  <body style="margin:0;background:#2b303b">
+    <canvas id="c"></canvas>
+    <script type="module">
+      import * as A from "/src/activities.ts";
+      import { drawBot, palette } from "/src/rig.ts";
+      import { getSkin } from "/src/skins/index.ts";
+      const skin = getSkin(new URLSearchParams(location.search).get("skin") ?? "robot");
+
+      const rows = [
+        ["run", A.run], ["moonwalk", A.moonwalk], ["robot", A.robotDance], ["jacks", A.jumpingJacks],
+        ["flip", A.flip], ["painting", A.painting], ["yawn", A.yawn], ["lieDown", A.lieDown],
+        ["sleep", A.sleep], ["getUp", A.getUp], ["alert", A.alert], ["death", null],
+      ];
+      const cols = 8, s = 3, cw = 120, rh = 110, lw = 80;
+      const c = document.getElementById("c");
+      c.width = lw + cols * cw; c.height = rows.length * rh;
+      const ctx = c.getContext("2d");
+      const pal = palette("agent-bots");
+      ctx.font = "12px sans-serif";
+      rows.forEach(([name, act], r) => {
+        const g = (r + 1) * rh - 12;
+        ctx.fillStyle = "#cbd5e1"; ctx.fillText(name, 6, g - 30);
+        ctx.fillStyle = "#475569"; ctx.fillRect(lw, g, cols * cw, 1);
+        for (let k = 0; k < cols; k++) {
+          const dur = act ? (isFinite(act.duration) ? act.duration : 3) : A.DEATH_DURATION;
+          const t = (k / (cols - 1)) * dur * 0.999;
+          const x = lw + k * cw + cw / 2;
+          const bot = { x, facing: 1, scale: s, groundY: g, width: 2000, speed: 1, actT: t,
+                        data: { dabs: [{x:1,y:2,c:"#f43f5e",w:1.5},{x:4,y:4,c:"#22d3ee",w:1.2},{x:2,y:5,c:"#facc15",w:1.8}] },
+                        activity: act ?? {}, randomX: () => x, clampX: (v) => v };
+          if (act) {
+            act.draw?.(ctx, bot, t);
+            drawBot(ctx, x, g, s, 1, act.pose(t, bot), pal, skin, t);
+          } else {
+            drawBot(ctx, x, g, s, 1, A.deathPose(t), pal, skin, t);
+            const gp = A.ghostPose(t); if (gp) drawBot(ctx, x, g, s, 1, gp, pal, skin, t);
+          }
+          ctx.fillStyle = "#64748b"; ctx.fillText(`t=${t.toFixed(1)}`, x - 14, g + 11);
+        }
+      });
+    </script>
+  </body>
+</html>

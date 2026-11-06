@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Bots</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      canvas.bot { position: fixed; left: 0; bottom: 0; display: block; image-rendering: pixelated; will-change: transform; }
+      #tip {
+        position: fixed; display: none; pointer-events: none;
+        font: 11px/1.35 -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #f4f4f5; background: rgba(24, 24, 27, 0.92);
+        padding: 5px 8px; border-radius: 6px; white-space: nowrap;
+      }
+      #tip b { font-weight: 600; }
+    </style>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <div id="tip"></div>
+  </body>
+</html>
