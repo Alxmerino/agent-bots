@@ -52,6 +52,7 @@ export class Stage {
   add(state: AgentState, project: string, name?: string): Bot {
     const s: Session = { session_id: `s${++ids}`, name, project, state, last_tool: "Edit", subagents: {} };
     const b = new Bot(s, this.world);
+    b.placeAwayFrom(this.bots.filter((o) => !o.dying).map((o) => o.x));
     this.bots.push(b);
     this.draw();
     return b;
@@ -90,7 +91,8 @@ export class Stage {
     this.canvas.height = this.height;
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${this.height}px`;
-    for (const b of this.bots) b.x = first ? b.randomX() : b.clampX(b.x);
+    if (first) this.bots.forEach((b, i) => { b.x = b.randomX(); b.placeAwayFrom(this.bots.slice(0, i).map((o) => o.x)); });
+    else for (const b of this.bots) b.x = b.clampX(b.x);
     this.draw();
   }
 

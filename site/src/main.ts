@@ -113,7 +113,12 @@ heroEl.addEventListener("pointerleave", () => (tip.hidden = true));
 for (const el of document.querySelectorAll<HTMLElement>("[data-stage]")) {
   const kind = el.dataset.stage!;
   const stage = new Stage(el, { scale: 3 });
-  if (kind !== "ended") { stage.add(kind as AgentState, `card-${kind}`); continue; }
+  if (kind !== "ended") {
+    const b = stage.add(kind as AgentState, `card-${kind}`);
+    // The working card shows a new turn every few seconds, so visitors see more than one animation.
+    if (kind === "working") setInterval(() => { if (!reduced()) { stage.setState(b, "idle"); stage.setState(b, "working"); } }, 5000);
+    continue;
+  }
   // Work for a bit, die, come back. A new bot only appears once the ghost is gone, and death only
   // plays while the card is on screen, so bots never pile up offscreen.
   const cycle = () => {

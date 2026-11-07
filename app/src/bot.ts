@@ -26,7 +26,9 @@ export class Bot {
   minis = new Map<string, Bot>();
   pal: Palette;
   session: Session;
-  private lastWorking?: Activity;
+  private turn?: Activity; // this turn's working animation
+  home = 0; // where the bot stood when its turn began; moving animations stay near it
+  private bag: Activity[] = []; // animations not played yet; refilled when empty
 
   constructor(
     session: Session,
@@ -52,6 +54,19 @@ export class Bot {
   }
   randomX() { return this.clampX(Math.random() * this.world.width); }
 
+  /** Moves to a spot far from the other bots: the best of a few random tries, so bots spread out
+   *  across the strip without lining up on a grid. Matters because most work animations stay put. */
+  placeAwayFrom(others: number[]) {
+    if (!others.length) return;
+    let bestD = -1;
+    for (let i = 0; i < 16; i++) {
+      const x = this.randomX();
+      const d = Math.min(...others.map((o) => Math.abs(o - x)));
+      if (d > bestD) { bestD = d; this.x = x; }
+    }
+    this.home = this.x;
+  }
+
   update(s: Session) {
     this.session = s;
     if (s.state !== this.state) this.setState(s.state);
@@ -59,11 +74,14 @@ export class Bot {
 
   setState(state: AgentState, initial = false) {
     const wasLying = this.activity === A.sleep || this.activity === A.lieDown;
+    // A new turn starts when work begins after idle. Waiting on a permission and going back to work
+    // is the same turn, so the bot picks up the animation it was doing.
+    if (state === "working" && (initial || this.state === "idle" || !this.turn)) this.newTurn();
     this.state = state;
     if (state === "idle") this.play(initial ? A.sleep : A.yawn);
     else if (wasLying && !initial) this.play(A.getUp);
     else if (state === "waiting") this.play(A.alert);
-    else this.play(this.pickWorking());
+    else this.play(this.turn!);
   }
 
   kill() {
@@ -86,20 +104,25 @@ export class Bot {
     a.start?.(this);
   }
 
-  private pickWorking(): Activity {
-    const pool = this.parent
-      ? A.MINI_WORKING.map((a) => ({ a, w: 1 }))
-      : A.WORKING;
-    const choices = pool.filter((c) => c.a !== this.lastWorking);
-    let r = Math.random() * choices.reduce((n, c) => n + c.w, 0);
-    for (const c of choices) if ((r -= c.w) <= 0) return (this.lastWorking = c.a);
-    return (this.lastWorking = choices[0].a);
+  /** Picks this turn's animation: every one plays once, in random order, before any repeats. */
+  private newTurn() {
+    if (!this.bag.length) {
+      const bag = [...(this.parent ? A.MINI_WORKING : A.WORKING)];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      if (bag.length > 1 && bag[bag.length - 1] === this.turn) bag.reverse(); // no repeat across refills
+      this.bag = bag;
+    }
+    this.turn = this.bag.pop()!;
+    this.home = this.x;
   }
 
   private next() {
     if (this.state === "idle") this.play(this.activity === A.yawn ? A.lieDown : A.sleep);
     else if (this.state === "waiting") this.play(A.alert);
-    else this.play(this.pickWorking());
+    else this.play(this.turn ?? A.WORKING[0]); // the same animation all turn (it loops)
   }
 
   tick(dt: number) {

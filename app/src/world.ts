@@ -66,7 +66,11 @@ export class Strip {
     for (const s of sessions) {
       seen.add(s.session_id);
       let b = this.bots.get(s.session_id);
-      if (!b) this.bots.set(s.session_id, (b = new Bot(s, this.world)));
+      if (!b) {
+        b = new Bot(s, this.world);
+        b.placeAwayFrom([...this.bots.values()].filter((o) => !o.dying).map((o) => o.x));
+        this.bots.set(s.session_id, b);
+      }
       else if (b.dying) b.revive();
       b.update(s);
       this.syncMinis(b, s);

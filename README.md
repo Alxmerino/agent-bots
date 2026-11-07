@@ -1,8 +1,10 @@
 # Agent Bots
 
-Agent Bots puts a strip of small characters along the bottom of your screen, one for every Claude Code session you have running. A bot runs, moonwalks, does the robot, or paints while its session is working, waves a "!" when Claude is waiting on you for a permission, and lies down to sleep when the turn is done. When a session ends, its bot dies (dramatically) and floats off as a ghost. Subagents show up as smaller bots that follow their parent around.
+**[Website and download](https://alxmerino.github.io/agent-bots/)**
 
-Hover a bot to see its name, project, current activity, and last tool. The strip never gets in the way: clicks pass straight through to whatever is underneath. The menu bar icon shows how many sessions are working and lets you switch styles and other settings.
+Agent Bots puts a strip of small characters along the bottom of your screen, one for every Claude Code session you have running. While its session is working, a bot types at a desk, lays bricks, shovels, sweeps, hits the treadmill, paints, or moonwalks: one move per turn, and a different one every turn until it has done them all. It waves a "!" when Claude is waiting on you for a permission, and lies down to sleep when the turn is done. When a session ends, its bot dies (dramatically) and floats off as a ghost. Subagents show up as smaller bots that follow their parent around.
+
+Hover a bot to see its name, project, current activity, and last tool. Click it to bring its terminal app to the front, whichever terminal or editor you use. Everywhere else, clicks pass straight through the strip. The menu bar icon shows how many sessions are working and lets you switch styles and other settings.
 
 Not a developer? Follow [docs/INSTALL.md](docs/INSTALL.md) instead; it installs from a `.dmg` with no Terminal.
 
@@ -61,11 +63,16 @@ Each style is one file in `app/src/skins/` (the code calls a style a skin). Crea
 
 To preview your style, run `pnpm dev` in `app/` and open `http://localhost:1420/poses.html?skin=<id>`. That page draws every activity at several points in time. The plain `http://localhost:1420/` page runs the strip in a browser with fake sessions and a control panel.
 
+## Recording a demo
+
+With the app running, start a screen recording (Cmd+Shift+5) and run `scripts/demo.sh`. It plays a scripted scene of about a minute with fake sessions (working, a permission prompt, subagents, a nap, a death) and removes them when it exits.
+
 ## Known limitations
 
 - The strip doesn't show over fullscreen apps. It does show on every Space.
+- Clicking a bot brings its terminal app forward, not the exact tab or window. Sessions inside tmux or over ssh have no app to bring forward, so clicking them does nothing.
 - Only Claude Code sessions started in a terminal get a bot. The Claude desktop app (chat, Cowork, and its Code tab) isn't supported.
 
 ## How it's put together
 
-`hook/hook.sh` is the whole data layer, with tests in `hook/test.sh` (run it directly). The app in `app/` is Tauri v2. The Rust side in `app/src-tauri/src/lib.rs` watches the sessions folder, checks whether each session's Claude process is still alive, streams the cursor position for hover tooltips (the window lets every click pass through), and builds the menu. The TypeScript side in `app/src/` draws the bots on a canvas. See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change.
+`hook/hook.sh` is the whole data layer, with tests in `hook/test.sh` (run it directly). The app in `app/` is Tauri v2. The Rust side in `app/src-tauri/src/lib.rs` watches the sessions folder, checks whether each session's Claude process is still alive, streams the cursor position so the window can let clicks pass through except over a bot, finds the terminal app above a session's process when you click it, and builds the menu. The TypeScript side in `app/src/` draws the bots on a canvas. See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change.

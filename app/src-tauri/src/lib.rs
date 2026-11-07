@@ -205,8 +205,8 @@ fn apply_visibility(app: &AppHandle, sessions: &[Value], cfg: &Config) {
     let _ = if visible { win.show() } else { win.hide() };
 }
 
-/// The window always ignores the mouse (clicks pass through to whatever is below). Rust feeds the
-/// frontend the cursor position for hover tooltips, because an ignoring window gets no events.
+/// The window ignores the mouse except while the cursor is over a bot. The frontend hit-tests and
+/// calls `set_interactive`; Rust feeds it the cursor position because an ignoring window gets no events.
 fn start_cursor_feed(app: AppHandle) {
     std::thread::spawn(move || {
         // Only send when something changed: an idle mouse costs nothing on the WebKit side.
@@ -253,6 +253,43 @@ fn get_state(state: tauri::State<Shared>) -> (Vec<Value>, Config) {
     (s.sessions.clone(), s.config.clone())
 }
 
+#[tauri::command]
+fn set_interactive(app: AppHandle, on: bool) {
+    if let Some(w) = main_window(&app) { let _ = w.set_ignore_cursor_events(!on); }
+}
+
+// ---------- terminal focus ----------
+
+/// The .app that hosts a process: walk up its parents until one runs from inside an app bundle. This
+/// finds the terminal whatever it is (Terminal, iTerm, Ghostty, Warp, VS Code, ...), with no AppleScript
+/// and no permission prompt. Sessions under tmux or ssh have no app above them and get None.
+fn owning_app(mut pid: i32) -> Option<String> {
+    for _ in 0..32 {
+        if pid <= 1 { return None; }
+        let mut buf = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        let n = unsafe { libc::proc_pidpath(pid, buf.as_mut_ptr().cast(), buf.len() as u32) };
+        if n > 0 {
+            let path = String::from_utf8_lossy(&buf[..n as usize]);
+            // The first ".app/" is the outermost bundle (VS Code's terminal runs in a nested helper app).
+            if let Some(i) = path.find(".app/") { return Some(path[..i + 4].to_string()); }
+        }
+        let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+        let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+        let got = unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, (&mut info as *mut libc::proc_bsdinfo).cast(), size) };
+        if got != size { return None; }
+        pid = info.pbi_ppid as i32;
+    }
+    None
+}
+
+/// Brings the app hosting a session's terminal to the front. Focuses the app, not the exact tab.
+#[tauri::command]
+fn focus_session(state: tauri::State<Shared>, id: String) {
+    let pid = state.lock().unwrap().sessions.iter().find(|s| s["session_id"] == id.as_str()).and_then(|s| s["pid"].as_i64());
+    let Some(app) = pid.and_then(|p| owning_app(p as i32)) else { return };
+    let _ = std::process::Command::new("open").arg("-a").arg(app).spawn();
+}
+
 // ---------- Claude Code connection ----------
 
 fn do_connect(app: &AppHandle) {
@@ -281,7 +318,7 @@ fn prompt_connect(app: &AppHandle) {
         .message(
             "Agent Bots shows a little bot for each Claude Code session you have running.\n\n\
              To see your sessions, it adds a small hook to your Claude Code settings. \
-             It backs up your settings first, and you can disconnect any time from the 🤖 menu.",
+             It backs up your settings first, and you can disconnect any time from its menu bar icon.",
         )
         .title("Connect to Claude Code?")
         .buttons(MessageDialogButtons::OkCancelCustom("Connect".into(), "Not now".into()))
@@ -318,16 +355,16 @@ fn build_menu(app: &AppHandle, sessions: &[Value], cfg: &Config) -> tauri::Resul
         menu.append(&MenuItem::with_id(app, "none", "No agents running", false, None::<&str>)?)?;
     }
     for s in sessions {
-        let icon = match s["state"].as_str() { Some("working") => "🏃", Some("waiting") => "❗", _ => "💤" };
+        let state = match s["state"].as_str() { Some("working") => "working", Some("waiting") => "needs you", _ => "done" };
         let subs = s["subagents"].as_object().map_or(0, |o| o.len());
         let label = format!(
-            "{icon}  {}{}{}",
+            "{}{}  —  {state}{}",
             s["name"].as_str().map(|n| format!("{n} · ")).unwrap_or_default(),
             s["project"].as_str().unwrap_or("?"),
-            if subs > 0 { format!("  (+{subs})") } else { String::new() }
+            if subs > 0 { format!(" (+{subs})") } else { String::new() }
         );
         let id = format!("session:{}", s["session_id"].as_str().unwrap_or(""));
-        menu.append(&MenuItem::with_id(app, id, label, false, None::<&str>)?)?;
+        menu.append(&MenuItem::with_id(app, id, label, true, None::<&str>)?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
 
@@ -377,12 +414,16 @@ fn update_tray(app: &AppHandle, sessions: &[Value], cfg: &Config) {
     let Some(tray) = app.tray_by_id("main") else { return };
     let working = sessions.iter().filter(|s| s["state"] == "working").count();
     let waiting = sessions.iter().filter(|s| s["state"] == "waiting").count();
-    let title = if waiting > 0 { format!("🤖 {working} ❗{waiting}") } else { format!("🤖 {working}") };
+    // Next to the bot icon: how many are working, plus "!n" for sessions waiting on you. Nothing when all is quiet.
+    let title = match (working, waiting) { (0, 0) => String::new(), (w, 0) => w.to_string(), (w, n) => format!("{w}  !{n}") };
     let _ = tray.set_title(Some(title));
     if let Ok(menu) = build_menu(app, sessions, cfg) { let _ = tray.set_menu(Some(menu)); }
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
+    if let Some(sid) = id.strip_prefix("session:") {
+        return focus_session(app.state::<Shared>(), sid.to_string());
+    }
     match id {
         "quit" => return app.exit(0),
         "restart" => app.restart(),
@@ -434,7 +475,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(AppState { config, sessions, ..Default::default() }))
-        .invoke_handler(tauri::generate_handler![get_state, register_skins])
+        .invoke_handler(tauri::generate_handler![get_state, set_interactive, focus_session, register_skins])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -446,7 +487,8 @@ pub fn run() {
                 (s.config.clone(), s.sessions.clone())
             };
             TrayIconBuilder::with_id("main")
-                .title("🤖")
+                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
+                .icon_as_template(true) // black on transparent; macOS tints it for light and dark menu bars
                 .menu(&build_menu(&handle, &sessions, &cfg)?)
                 .on_menu_event(|app, e| on_menu(app, e.id().as_ref()))
                 .build(app)?;
@@ -479,6 +521,16 @@ pub fn run() {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn owning_app_finds_the_outer_bundle() {
+        assert_eq!(owning_app(1), None); // launchd: nothing above it
+        let out = std::process::Command::new("pgrep").args(["-x", "Finder"]).output().unwrap();
+        let finder: i32 = String::from_utf8_lossy(&out.stdout).trim().parse().expect("Finder is running");
+        assert_eq!(owning_app(finder).as_deref(), Some("/System/Library/CoreServices/Finder.app"));
+        // This test's own parent chain leads to whatever terminal ran it, or nothing under tmux/CI.
+        if let Some(app) = owning_app(std::process::id() as i32) { assert!(app.ends_with(".app"), "{app}"); println!("test runs under {app}"); }
+    }
 
     #[test]
     fn dead_and_stale_sessions_are_dropped() {

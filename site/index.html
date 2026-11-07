@@ -5,10 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Agent Bots: a little bot for every Claude Code session</title>
     <meta name="description" content="Agent Bots puts a tiny pixel character on your Mac for every Claude Code session. It works while Claude works, waves when Claude needs you, and naps when the turn is done. Free and open source." />
-    <meta property="og:title" content="Agent Bots" />
-    <meta property="og:description" content="A little bot for every Claude Code session, right above your Dock." />
+    <link rel="canonical" href="https://alxmerino.github.io/agent-bots/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Agent Bots" />
+    <meta property="og:url" content="https://alxmerino.github.io/agent-bots/" />
+    <meta property="og:title" content="Agent Bots: a little bot for every Claude Code session" />
+    <meta property="og:description" content="A tiny pixel character above your Dock for each Claude Code session. Works while Claude works, waves when it needs you, naps when it's done. Free for macOS." />
+    <meta property="og:image" content="https://alxmerino.github.io/agent-bots/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Pixel-art bots typing at a desk, running on a treadmill, laying bricks, waving and sleeping." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Agent Bots: a little bot for every Claude Code session" />
+    <meta name="twitter:description" content="A tiny pixel character above your Dock for each Claude Code session. Free for macOS." />
+    <meta name="twitter:image" content="https://alxmerino.github.io/agent-bots/og.png" />
     <meta name="theme-color" content="#0f172a" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Agent Bots",
+        "description": "A pixel character on your Mac for every Claude Code session, showing whether it is working, waiting on you, or done.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS 15 or later (Apple silicon)",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "downloadUrl": "https://github.com/Alxmerino/agent-bots/releases/latest/download/Agent-Bots.dmg",
+        "url": "https://alxmerino.github.io/agent-bots/",
+        "license": "https://opensource.org/licenses/MIT",
+        "image": "https://alxmerino.github.io/agent-bots/og.png"
+      }
+    </script>
     <script type="module" src="./src/main.ts"></script>
   </head>
   <body>
@@ -39,7 +67,7 @@
             </a>
             <a class="btn" href="https://github.com/Alxmerino/agent-bots">View on GitHub</a>
           </div>
-          <p class="meta">Free and open source · macOS 15+ on Apple silicon · Signed and notarized by Apple</p>
+          <p class="meta">Free and open source · macOS 15+ on Apple silicon</p>
         </div>
 
         <figure class="desktop" aria-labelledby="desktop-caption">
@@ -75,12 +103,12 @@
 
       <section id="states" class="section">
         <h2>Read the room at a glance</h2>
-        <p class="section-lede">Every state of a session has its own body language. No windows to check, no tabs to hunt through.</p>
+        <p class="section-lede">Every state of a session has its own body language. No windows to check, no tabs to hunt through. Click a bot to jump to its terminal.</p>
         <ul class="cards">
           <li class="card">
             <div class="stage" data-stage="working"></div>
             <h3><span class="dot working" aria-hidden="true"></span>Working</h3>
-            <p>Claude is busy. Your bot runs, moonwalks, does the robot, or paints.</p>
+            <p>Claude is busy. Your bot types at a desk, lays bricks, hits the treadmill, or moonwalks. One move per turn, and a different one next turn.</p>
           </li>
           <li class="card">
             <div class="stage" data-stage="waiting"></div>

@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Renders the app icon with the real robot renderer. Regenerate:
+     pnpm dev, then headless Chrome screenshot of /icon.html at 1024x1024 with a transparent background,
+     then `pnpm tauri icon <png>`. -->
+<html><head><style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><canvas id="c" width="1024" height="1024"></canvas>
+<script type="module">
+  import { pose } from "/src/rig.ts";
+  import { drawBot } from "/src/rig.ts";
+  import { robot } from "/src/skins/robot.ts";
+  const ctx = document.getElementById("c").getContext("2d");
+  // macOS icon grid: 824px rounded square centered on a 1024 canvas.
+  const g = ctx.createLinearGradient(0, 100, 0, 924);
+  g.addColorStop(0, "#334155"); g.addColorStop(1, "#0f172a");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(100, 100, 824, 824, 185); ctx.fill();
+  ctx.fillStyle = "#22c55e"; ctx.fillRect(236, 764, 552, 14); // floor, just under the feet' outline
+  const pal = { hue: 142, body: "hsl(142 62% 52%)", dark: "hsl(142 45% 30%)", light: "hsl(142 80% 80%)" };
+  const s = 21;
+  ctx.imageSmoothingEnabled = false;
+  drawBot(ctx, 512, 740, s, 1, pose({ armR: 0.6, armL: 0.45 }), pal, robot, 0);
+</script></body></html>

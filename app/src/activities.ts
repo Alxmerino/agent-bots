@@ -15,6 +15,14 @@ const { sin, cos, PI, abs, min, max, random } = Math;
 const clamp01 = (v: number) => min(1, max(0, v));
 const ease = (v: number) => 0.5 - cos(clamp01(v) * PI) / 2;
 
+/** One step of a moving animation that keeps near where the turn began (turns around at the edge of
+ *  its range), so a bot that moonwalks or sweeps all turn doesn't wander into the others. */
+function pace(b: Bot, dir: number, speed: number, dt: number) {
+  const next = b.clampX(b.x + dir * speed * b.speed * (b.scale / 3) * dt);
+  if (next === b.x || Math.abs(next - b.home) > 28 * b.scale) b.facing = -b.facing;
+  else b.x = next;
+}
+
 const runPose = (t: number, f = 11): Pose =>
   pose({
     legL: max(0, sin(t * f)) * 0.7,
@@ -49,13 +57,8 @@ export const moonwalk: Activity = {
   name: "moonwalking",
   duration: 4.5,
   travels: true,
-  start(b) {
-    // face toward the wider side so the slide (backwards) has room
-    b.facing = b.x > b.width / 2 ? 1 : -1;
-  },
   update(dt, b) {
-    b.x -= b.facing * 22 * b.speed * (b.scale / 3) * dt;
-    b.x = b.clampX(b.x);
+    pace(b, -b.facing, 22, dt); // slides backwards
   },
   pose(t) {
     const ph = (t * 2.2) % 1;
@@ -178,13 +181,186 @@ export const painting: Activity = {
   },
 };
 
-export const WORKING: { a: Activity; w: number }[] = [
-  { a: run, w: 3 },
-  { a: moonwalk, w: 1 },
-  { a: robotDance, w: 1 },
-  { a: jumpingJacks, w: 1 },
-  { a: flip, w: 1 },
-  { a: painting, w: 1 },
+// ---------- work ----------
+// Props use bot-relative logical px (x forward from the bot, y up is negative) and are drawn before the
+// bot, so they sit behind it. rect() mirrors them when the bot faces left.
+
+function rect(ctx: CanvasRenderingContext2D, b: Bot, x: number, y: number, w: number, h: number, c: string) {
+  const s = b.scale;
+  ctx.fillStyle = c;
+  ctx.fillRect(b.x + (b.facing > 0 ? x : -x - w) * s, b.groundY + y * s, w * s, h * s);
+}
+
+/** A pixel line (broom and shovel handles). */
+function stick(ctx: CanvasRenderingContext2D, b: Bot, x1: number, y1: number, x2: number, y2: number, w: number, c: string) {
+  const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 0.5));
+  for (let i = 0; i <= n; i++) rect(ctx, b, x1 + ((x2 - x1) * i) / n - w / 2, y1 + ((y2 - y1) * i) / n - w / 2, w, w, c);
+}
+
+/** Front hand for a front-arm angle (chibi shoulder at (3, -7.5), arm 3.5 long). */
+const hand = (a: number) => ({ x: 3 + 3.5 * sin(a), y: -7.5 + 3.5 * cos(a) });
+
+const CODE = ["#7ef9ff", "#ffd43b", "#ff8fa3", "#a3e635", "#c4b5fd"];
+
+export const typing: Activity = {
+  name: "typing at a desk",
+  duration: 8,
+  pose(t) {
+    return pose({
+      armR: 1.5 + sin(t * 28) * 0.12,
+      armL: 1.4 + sin(t * 28 + 1.7) * 0.12,
+      head: t % 4 > 3.5 ? -0.05 : 0.12, // glances up at the screen now and then
+      eyes: t % 3 > 2.85 ? "closed" : "open",
+    });
+  },
+  draw(ctx, b, t) {
+    rect(ctx, b, 4, -7, 12, 1, "#8b5a2b"); // standing desk
+    rect(ctx, b, 5, -6, 1, 6, "#6b4423");
+    rect(ctx, b, 14, -6, 1, 6, "#6b4423");
+    rect(ctx, b, 5, -7.75, 4, 0.75, "#cbd5e1"); // keyboard
+    rect(ctx, b, 11.5, -10, 1, 3, "#475569"); // monitor stand
+    rect(ctx, b, 8.5, -17, 7, 7, "#1f1a24");
+    rect(ctx, b, 9, -16.5, 6, 6, "#0b1020");
+    const top = Math.floor(t * 3); // code scrolls up
+    for (let i = 0; i < 4; i++) {
+      const n = top + i;
+      rect(ctx, b, 9.5 + (n % 3 ? 1 : 0), -16 + i * 1.4, 1 + ((n * 7) % 4), 0.75, CODE[n % CODE.length]);
+    }
+  },
+};
+
+export const sweeping: Activity = {
+  name: "sweeping up",
+  duration: 6,
+  travels: true,
+  update(dt, b) {
+    pace(b, b.facing, 8, dt);
+  },
+  pose(t) {
+    const sw = sin(t * 6);
+    return pose({
+      armR: 0.9 + sw * 0.25, armL: 0.7 + sw * 0.25,
+      legL: max(0, sw) * 0.3, legR: max(0, -sw) * 0.3,
+      rot: 0.08, head: 0.1,
+    });
+  },
+  draw(ctx, b, t) {
+    const sw = sin(t * 6);
+    const h = hand(0.9 + sw * 0.25);
+    const tip = h.x + 5 + sw * 2;
+    stick(ctx, b, h.x - 1, h.y - 2, tip, -2, 0.75, "#a16207");
+    rect(ctx, b, tip - 1.5, -2.5, 3.5, 0.75, "#92400e");
+    rect(ctx, b, tip - 1.5, -1.75, 3.5, 1.75, "#facc15");
+    if (sw > 0.2) {
+      ctx.save();
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 3 + i / 3) % 1;
+        ctx.globalAlpha = 1 - k;
+        rect(ctx, b, tip + 2 + k * 4 + i, -1 - k * 3 - i * 0.5, 0.75, 0.75, "#d6d3d1");
+      }
+      ctx.restore();
+    }
+  },
+};
+
+const SCOOP = 1.6; // seconds per shovelful
+/** Front-arm angle while shoveling: dig low, lift, toss over the shoulder, swing back. */
+function shovelArm(t: number) {
+  const k = (t % SCOOP) / SCOOP;
+  if (k < 0.35) return 0.5;
+  if (k < 0.6) return 0.5 + ease((k - 0.35) / 0.25) * 0.9;
+  if (k < 0.75) return 1.4 + ease((k - 0.6) / 0.15) * 1.8;
+  return 3.2 - ease((k - 0.75) / 0.25) * 2.7;
+}
+
+export const shoveling: Activity = {
+  name: "shoveling",
+  duration: SCOOP * 8,
+  pose(t) {
+    const k = (t % SCOOP) / SCOOP;
+    const a = shovelArm(t);
+    return pose({
+      armR: a, armL: a - 0.2,
+      rot: k < 0.35 ? 0.15 : k > 0.6 && k < 0.8 ? -0.1 : 0,
+      legL: k < 0.35 ? 0.2 : 0,
+      head: k < 0.35 ? 0.15 : -0.05,
+      eyes: k > 0.6 && k < 0.8 ? "closed" : "open",
+    });
+  },
+  draw(ctx, b, t) {
+    const k = (t % SCOOP) / SCOOP;
+    const a = shovelArm(t);
+    const h = hand(a);
+    const dx = sin(a), dy = cos(a);
+    const bx = h.x + dx * 5.5, by = h.y + dy * 5.5; // blade
+    stick(ctx, b, h.x - dx, h.y - dy, bx, by, 0.75, "#a16207");
+    rect(ctx, b, bx - 1.25, by - 1, 2.5, 2.5, "#94a3b8");
+    if (k > 0.35 && k < 0.7) rect(ctx, b, bx - 1, by - 1.5, 2, 1, "#78350f"); // a load of dirt
+    // the pile behind grows with every toss
+    const pile = min(7, Math.floor(t / SCOOP));
+    for (let r = 0; r < pile; r++) rect(ctx, b, -11 - (pile - r) * 0.6, -1 - r * 0.7, (pile - r) * 1.2 + 1, 0.75, r % 2 ? "#92400e" : "#78350f");
+    if (k > 0.7 && k < 0.92) { // clod in flight
+      const f = (k - 0.7) / 0.22;
+      rect(ctx, b, bx + (-11 - bx) * f, by + (-4 - by) * f - sin(f * PI) * 6, 1, 1, "#78350f");
+    }
+  },
+};
+
+const BRICK = 1.1, COLS = 3, ROWS = 5;
+/** Front-arm angle while laying bricks: pick one off the stack, lift, set it on the wall. */
+function brickArm(t: number) {
+  const k = (t % BRICK) / BRICK;
+  if (k < 0.3) return 0.6;
+  if (k < 0.7) return 0.6 + ease((k - 0.3) / 0.4) * 0.9;
+  return 1.5 - ease((k - 0.7) / 0.3) * 0.9;
+}
+
+export const bricklaying: Activity = {
+  name: "laying bricks",
+  duration: COLS * ROWS * BRICK + 2,
+  pose(t) {
+    const k = (t % BRICK) / BRICK;
+    const a = brickArm(t);
+    return pose({ armR: a, armL: 0.4 + a * 0.4, rot: k < 0.3 ? 0.2 : 0, head: 0.1 });
+  },
+  draw(ctx, b, t) {
+    const red = "#c2410c";
+    rect(ctx, b, 4.5, -1.5, 3, 1.5, red); // stack of bricks at the feet
+    rect(ctx, b, 5, -3, 3, 1.5, "#9a3412");
+    const laid = min(COLS * ROWS, Math.floor(t / BRICK));
+    for (let i = 0; i < laid; i++) {
+      const r = Math.floor(i / COLS), c = i % COLS;
+      rect(ctx, b, 9.5 + c * 3.25 + (r % 2 ? 1.5 : 0), -1.75 - r * 1.75, 3, 1.5, red);
+    }
+    const k = (t % BRICK) / BRICK;
+    if (laid < COLS * ROWS && k > 0.3 && k < 0.95) {
+      const h = hand(brickArm(t));
+      rect(ctx, b, h.x - 0.5, h.y - 1, 3, 1.5, red); // brick in hand
+    }
+  },
+};
+
+export const treadmill: Activity = {
+  name: "on the treadmill",
+  duration: 10,
+  pose(t) {
+    const p = runPose(t, 13);
+    return { ...p, dy: p.dy - 2.5 }; // stand on the belt
+  },
+  draw(ctx, b, t) {
+    rect(ctx, b, -10, -1, 20, 1, "#1f1a24"); // base
+    rect(ctx, b, -10, -2.5, 20, 1.5, "#334155"); // belt
+    for (let i = 0; i < 5; i++) rect(ctx, b, ((i * 4 + 20 - ((t * 18) % 20)) % 20) - 10, -2.5, 1, 0.5, "#94a3b8"); // belt moves back
+    rect(ctx, b, 9, -9, 1, 6.5, "#64748b"); // upright
+    rect(ctx, b, 5, -9, 5, 1, "#64748b"); // handlebar
+    rect(ctx, b, 7.5, -11, 3, 2, "#0f172a"); // console
+    if (t % 1 < 0.6) rect(ctx, b, 8.25, -10.5, 1.5, 0.75, "#22c55e");
+  },
+};
+
+/** Each working turn plays one of these, and a bot goes through all of them before repeating. */
+export const WORKING: Activity[] = [
+  treadmill, typing, sweeping, shoveling, bricklaying, painting, moonwalk, robotDance, jumpingJacks, flip,
 ];
 export const MINI_WORKING = [robotDance, jumpingJacks, flip];
 

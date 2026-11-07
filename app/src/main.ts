@@ -12,7 +12,7 @@ const applyConfig = (c: Config) => {
   strip.setConfig(c);
 };
 
-// Hover tooltip in the browser mock. In Tauri the window ignores the mouse; see the cursor feed below.
+// Hover tooltip (in Tauri, cursor events arrive only while over a bot; see click-through in Rust).
 addEventListener("mousemove", (e) => strip.showTip(strip.hitTest(e.clientX, e.clientY), e.clientX));
 addEventListener("mouseleave", () => strip.showTip(undefined, 0));
 
@@ -29,11 +29,22 @@ async function startTauri() {
   await listen<Session[]>("sessions-changed", (e) => strip.sync(e.payload));
   await listen<Config>("config-changed", (e) => applyConfig(e.payload));
 
-  // The window ignores the mouse, so Rust streams the cursor position for the tooltip.
+  // The window ignores the mouse until the cursor is over a bot (Rust streams the cursor position).
+  let interactive = false;
   await listen<[number, number] | null>("cursor", (e) => {
     const hit = e.payload ? strip.hitTest(e.payload[0], e.payload[1]) : undefined;
+    if (!!hit !== interactive) {
+      interactive = !!hit;
+      invoke("set_interactive", { on: interactive });
+    }
     // macOS doesn't send mousemove to an unfocused window, so drive the tooltip from the cursor feed.
     strip.showTip(hit, e.payload?.[0] ?? 0);
+  });
+
+  // Clicking a bot brings its terminal app to the front.
+  addEventListener("mousedown", (e) => {
+    const b = strip.hitTest(e.clientX, e.clientY);
+    if (b) invoke("focus_session", { id: b.session.session_id });
   });
 
   const { SKINS } = await import("./skins");

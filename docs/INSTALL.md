@@ -19,7 +19,7 @@ A robot icon now sits in your menu bar. Start a Claude Code session, or send a m
 
 ## Using it
 
-Hover over a bot to see its name, which project it's working in, and what it's doing. When a session ends, its bot dies dramatically and floats away as a ghost. That's how it tells you the session is over, not a sign that something crashed.
+Hover over a bot to see its name, which project it's working in, and what it's doing. Click a bot to bring its terminal to the front. When a session ends, its bot dies dramatically and floats away as a ghost. That's how it tells you the session is over, not a sign that something crashed.
 
 Click the robot icon in your menu bar to change how the bots look (robots, critters, dogs, cats, or aliens), move them to the bottom right of your screen, make them bigger or smaller, slow them down, or hide the name tags.
 
