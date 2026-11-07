@@ -2,6 +2,8 @@
 
 **[Website and download](https://alxmerino.github.io/agent-bots/)**
 
+![Four bots along the bottom of a Mac screen: one on a treadmill, one waving a "!" for a permission prompt, one doing flips with two smaller subagent bots, one laying bricks](docs/demo.gif)
+
 Agent Bots puts a strip of small characters along the bottom of your screen, one for every Claude Code session you have running. While its session is working, a bot types at a desk, lays bricks, shovels, sweeps, hits the treadmill, paints, or moonwalks: one move per turn, and a different one every turn until it has done them all. It waves a "!" when Claude is waiting on you for a permission, and lies down to sleep when the turn is done. When a session ends, its bot dies (dramatically) and floats off as a ghost. Subagents show up as smaller bots that follow their parent around.
 
 Hover a bot to see its name, project, current activity, and last tool. Click it to bring its terminal app to the front, whichever terminal or editor you use. Everywhere else, clicks pass straight through the strip. The menu bar icon shows how many sessions are working and lets you switch styles and other settings.
