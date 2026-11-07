@@ -49,11 +49,15 @@ a:hover { color: #4ade80; }
 .skip:focus { top: 16px; }
 
 /* ---------- nav ---------- */
-.nav {
-  max-width: var(--max); margin: 0 auto; padding: 20px 24px;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+/* Sticky rather than fixed: stays put while scrolling but keeps its own space in the layout. */
+.nav { position: sticky; top: 0; z-index: 50; background: var(--bg); border-bottom: 3px solid #000; }
+.nav-inner {
+  max-width: var(--max); margin: 0 auto; padding: 8px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
-.brand { color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.brand { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.logo { display: block; flex: none; }
+[id] { scroll-margin-top: 80px; } /* anchor jumps land below the sticky header */
 .nav nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 10px 12px; min-height: 44px; display: inline-flex; align-items: center; }
 .nav nav a:hover { color: var(--fg); }
@@ -173,6 +177,9 @@ a:hover { color: #4ade80; }
 
 @media (max-width: 600px) {
   body { font-size: 16px; }
+  .nav-inner { padding: 6px 12px; gap: 8px; }
+  .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } /* logo only; the link keeps its label */
+  .nav nav a { padding: 10px 7px; font-size: 0.9rem; }
   .hero { padding-top: 16px; }
   .term pre { font-size: 0.75rem; min-height: 72px; }
   .menubar span:not(.apple):not(.tray) { display: none; }

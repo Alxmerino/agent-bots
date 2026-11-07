@@ -21,6 +21,14 @@ if [[ "$event" == "SessionEnd" ]]; then
   exit 0
 fi
 
+# Claude desktop starts sessions it never uses (previews of sidebar sessions, spare processes), and
+# each fires SessionStart. Its sessions get a bot only once something happens: a prompt, a tool, a
+# permission request. Terminal sessions show up as soon as they start.
+host=""; [[ "${CLAUDE_CODE_ENTRYPOINT:-}" == "claude-desktop" ]] && host="desktop"
+if [[ -n "$host" && ! -f "$file" ]]; then
+  case "$event" in UserPromptSubmit|PreToolUse|PermissionRequest) ;; *) exit 0 ;; esac
+fi
+
 # Find the Claude Code process: walk up the tree until the process name is "claude".
 pid=""
 if [[ ! -f "$file" ]]; then
@@ -51,40 +59,58 @@ done
 prev="{}"
 [[ -s "$file" ]] && prev="$(<"$file")"
 
-# A random name, used only when the session has none yet.
+# A random name for a new session, avoiding names other live sessions already have.
 NAMES=(Bolt Sprocket Widget Gizmo Rivet Pixel Cog Ziggy Blip Bleep Chip Dyna Echo Flux Gadget Hex
   Jolt Kilo Lumen Mako Nano Ohm Piston Quark Servo Tango Unit Volt Watt Zed Bitsy Crank Dynamo
   Ember Fizz Glitch Ion Juno Knob Loop Morse Nibble Orbit Pip Robo Spark Tinker Ratchet Wobble)
-name="${NAMES[RANDOM % ${#NAMES[@]}]}"
+name=""
+if [[ ! -s "$file" ]]; then
+  used=" $(cat "$DIR"/*.json 2>/dev/null | "$JQ" -r '.name // empty' | tr '\n' ' ') "
+  free=()
+  for n in "${NAMES[@]}"; do [[ "$used" == *" $n "* ]] || free+=("$n"); done
+  (( ${#free[@]} )) || free=("${NAMES[@]}")
+  name="${free[RANDOM % ${#free[@]}]}"
+fi
 
 tmp="$DIR/.tmp.$sid.$$"
 printf '%s' "$input" | "$JQ" \
   --argjson prev "$prev" \
   --arg now "$now" --arg name "$name" \
-  --arg pid "$pid" '
+  --arg pid "$pid" --arg host "$host" --arg host_sid "${CLAUDE_CODE_HOST_SESSION_ID:-}" '
   . as $in
   | ($now | tonumber) as $t
   | ($prev + {
       session_id: $in.session_id,
       name: ($prev.name // $name),
-      cwd: ($in.cwd // $prev.cwd // ""),
-      project: (($in.cwd // $prev.cwd // "") | split("/") | map(select(. != "")) | last // "unknown"),
+      # Where the session started: the label stays put when Claude cds around.
+      cwd: ($prev.cwd // $in.cwd // ""),
+      project: ($prev.project // (($in.cwd // "") | split("/") | map(select(. != "")) | last // "unknown")),
+      # "desktop" for Claude desktop sessions, with the id the desktop app uses for the session
+      # (its local_ id can differ from session_id, so it cannot be derived).
+      host: (if $host == "" then $prev.host else $host end),
+      host_session_id: (if $host_sid == "" then $prev.host_session_id else $host_sid end),
       state: ($prev.state // "idle"),
       last_tool: ($prev.last_tool // ""),
-      subagents: ($prev.subagents // {}),
+      # Background subagents outlive the turn that started them, so only SubagentStop removes one.
+      # Any missed stop is dropped after an hour.
+      subagents: (($prev.subagents // {}) | with_entries(select((.value.since // 0) > $t - 3600))),
       pid: ($prev.pid // (if $pid == "" then null else ($pid | tonumber) end)),
       updated: $t
     })
   | if   $in.hook_event_name == "SessionStart"     then .state = "idle"
     elif $in.hook_event_name == "UserPromptSubmit" then .state = "working"
-    elif $in.hook_event_name == "PreToolUse"       then .state = "working" | .last_tool = ($in.tool_name // .last_tool)
+    elif $in.hook_event_name == "PreToolUse"       then
+      # AskUserQuestion and ExitPlanMode stop and wait for an answer; PostToolUse sets working again.
+      (if ($in.tool_name // "") | IN("AskUserQuestion", "ExitPlanMode") then .state = "waiting" else .state = "working" end)
+      | .last_tool = ($in.tool_name // .last_tool)
     elif $in.hook_event_name == "PostToolUse"      then .state = "working"
     elif $in.hook_event_name == "PermissionRequest" then .state = "waiting"
     elif $in.hook_event_name == "Notification" then
       (if ($in.notification_type // "") | IN("permission_prompt", "elicitation_dialog") then .state = "waiting"
        elif $in.notification_type == "idle_prompt" then .state = "idle"
        else . end)
-    elif $in.hook_event_name == "Stop" or $in.hook_event_name == "StopFailure" then .state = "idle" | .subagents = {}
+    elif $in.hook_event_name == "Stop" or $in.hook_event_name == "StopFailure" then .state = "idle"
+    elif ($in.agent_id // "") == ""                then .   # subagent events without an id: nothing to track
     elif $in.hook_event_name == "SubagentStart"    then .subagents[$in.agent_id] = {type: ($in.agent_type // "agent"), since: $t}
     elif $in.hook_event_name == "SubagentStop"     then del(.subagents[$in.agent_id])
     else . end

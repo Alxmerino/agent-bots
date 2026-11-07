@@ -102,7 +102,7 @@ export class Strip {
     const s = b.session;
     const subs = Object.keys(s.subagents).length;
     this.tip.innerHTML =
-      `<b>${esc(s.name ?? s.project)}</b>${s.name ? ` · ${esc(s.project)}` : ""}<br>${b.dying ? "dying…" : b.activity.name} · ${s.state}` +
+      `<b>${esc(s.name ?? s.project)}</b>${s.name ? ` · ${esc(s.project)}` : ""}${s.host === "desktop" ? " · Claude desktop" : ""}<br>${b.dying ? "dying…" : b.activity.name} · ${s.state}` +
       (s.last_tool ? `<br>last tool: ${esc(s.last_tool)}` : "") +
       (subs ? `<br>${subs} subagent${subs > 1 ? "s" : ""}` : "");
     this.tip.style.display = "block";

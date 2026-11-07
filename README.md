@@ -6,11 +6,11 @@
 
 Agent Bots puts a strip of small characters along the bottom of your screen, one for every Claude Code session you have running. While its session is working, a bot types at a desk, lays bricks, shovels, sweeps, hits the treadmill, paints, or moonwalks: one move per turn, and a different one every turn until it has done them all. It waves a "!" when Claude is waiting on you for a permission, and lies down to sleep when the turn is done. When a session ends, its bot dies (dramatically) and floats off as a ghost. Subagents show up as smaller bots that follow their parent around.
 
-Hover a bot to see its name, project, current activity, and last tool. Click it to bring its terminal app to the front, whichever terminal or editor you use. Everywhere else, clicks pass straight through the strip. The menu bar icon shows how many sessions are working and lets you switch styles and other settings.
+Hover a bot to see its name, project, current activity, and last tool. Click it to bring its terminal app to the front, whichever terminal or editor you use. A bot for a Claude desktop session opens that exact session. Everywhere else, clicks pass straight through the strip. The menu bar icon shows how many sessions are working and lets you switch styles and other settings.
 
 Not a developer? Follow [docs/INSTALL.md](docs/INSTALL.md) instead; it installs from a `.dmg` with no Terminal.
 
-It runs on macOS only and works with Claude Code in any terminal.
+It runs on macOS only and works with Claude Code in any terminal and in the Claude desktop app's Code tab.
 
 ## What you need
 
@@ -73,8 +73,13 @@ With the app running, start a screen recording (Cmd+Shift+5) and run `scripts/de
 
 - The strip doesn't show over fullscreen apps. It does show on every Space.
 - Clicking a bot brings its terminal app forward, not the exact tab or window. Sessions inside tmux or over ssh have no app to bring forward, so clicking them does nothing.
-- Only Claude Code sessions started in a terminal get a bot. The Claude desktop app (chat, Cowork, and its Code tab) isn't supported.
+- Claude Code sessions in a terminal and in the Claude desktop app's Code tab get a bot. Desktop chats, Cowork, cloud sessions, and SSH sessions don't, because they run no hooks on your Mac.
+- Opening the exact desktop session uses a link the desktop app doesn't document. If an update breaks it, clicking opens the Code tab's home instead.
+
+## Troubleshooting
+
+**No bot for a desktop Code tab session.** A desktop session gets its bot when you send the first prompt, not when you open it. If it still doesn't show, the desktop app's bundled Claude Code may not be running hooks: see [anthropics/claude-code#87657](https://github.com/anthropics/claude-code/issues/87657) and [#96496](https://github.com/anthropics/claude-code/issues/96496). When reporting it, include the desktop app version (Claude > About Claude) and the bundled Claude Code version (the folder name in `~/Library/Application Support/Claude/claude-code/`). The desktop app updates its Claude Code on its own schedule, separately from the `claude` in your terminal.
 
 ## How it's put together
 
-`hook/hook.sh` is the whole data layer, with tests in `hook/test.sh` (run it directly). The app in `app/` is Tauri v2. The Rust side in `app/src-tauri/src/lib.rs` watches the sessions folder, checks whether each session's Claude process is still alive, streams the cursor position so the window can let clicks pass through except over a bot, finds the terminal app above a session's process when you click it, and builds the menu. The TypeScript side in `app/src/` draws the bots on a canvas. See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change.
+`hook/hook.sh` is the whole data layer, with tests in `hook/test.sh` (run it directly). The app in `app/` is Tauri v2. The Rust side in `app/src-tauri/src/lib.rs` watches the sessions folder, checks whether each session's Claude process is still alive, streams the cursor position so the window can let clicks pass through except over a bot, finds the terminal app above a session's process (or opens the desktop session) when you click it, and builds the menu. The TypeScript side in `app/src/` draws the bots on a canvas. See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change.

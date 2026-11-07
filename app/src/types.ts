@@ -7,6 +7,7 @@ export interface Session {
   state: AgentState;
   last_tool: string;
   subagents: Record<string, { type: string; since: number }>;
+  host?: "desktop" | null; // set for Claude desktop sessions
 }
 
 export interface Config {

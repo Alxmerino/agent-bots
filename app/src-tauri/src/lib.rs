@@ -260,33 +260,52 @@ fn set_interactive(app: AppHandle, on: bool) {
 
 // ---------- terminal focus ----------
 
-/// The .app that hosts a process: walk up its parents until one runs from inside an app bundle. This
-/// finds the terminal whatever it is (Terminal, iTerm, Ghostty, Warp, VS Code, ...), with no AppleScript
-/// and no permission prompt. Sessions under tmux or ssh have no app above them and get None.
+/// The .app that hosts a process: the highest ancestor that runs from inside an app bundle. This finds
+/// the terminal whatever it is (Terminal, iTerm, Ghostty, Warp, VS Code, ...) and the Claude desktop app,
+/// with no AppleScript and no permission prompt. It has to be the highest one: Claude desktop runs its
+/// sessions with a Claude Code copy that is itself an .app (in Application Support), under Claude.app.
+/// Sessions under tmux or ssh have no app above them and get None.
 fn owning_app(mut pid: i32) -> Option<String> {
-    for _ in 0..32 {
-        if pid <= 1 { return None; }
+    let mut found = None;
+    for _ in 0..64 {
+        if pid <= 1 { break; }
         let mut buf = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
         let n = unsafe { libc::proc_pidpath(pid, buf.as_mut_ptr().cast(), buf.len() as u32) };
         if n > 0 {
             let path = String::from_utf8_lossy(&buf[..n as usize]);
-            // The first ".app/" is the outermost bundle (VS Code's terminal runs in a nested helper app).
-            if let Some(i) = path.find(".app/") { return Some(path[..i + 4].to_string()); }
+            // Within one path, the first ".app/" is the outermost bundle (VS Code's terminal runs in a nested helper app).
+            if let Some(i) = path.find(".app/") { found = Some(path[..i + 4].to_string()); }
         }
         let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
         let got = unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, (&mut info as *mut libc::proc_bsdinfo).cast(), size) };
-        if got != size { return None; }
+        if got != size { break; }
         pid = info.pbi_ppid as i32;
     }
-    None
+    found
 }
 
-/// Brings the app hosting a session's terminal to the front. Focuses the app, not the exact tab.
+/// Link that opens one Claude desktop session (undocumented; tested on desktop 4.23118). An unknown or
+/// archived id opens the Code home instead. The id comes from a file on disk, so only a plain
+/// `local_<uuid>` is accepted into the URL.
+fn desktop_link(s: &Value) -> Option<String> {
+    if s["host"] != "desktop" { return None; }
+    let id = s["host_session_id"].as_str()?;
+    let rest = id.strip_prefix("local_")?;
+    if rest.is_empty() || !rest.chars().all(|c| c.is_ascii_hexdigit() || c == '-') { return None; }
+    Some(format!("claude://code/continue?session={id}"))
+}
+
+/// Brings a session forward: a Claude desktop session opens at that exact session; any other session
+/// brings its terminal app to the front (the app, not the exact tab).
 #[tauri::command]
 fn focus_session(state: tauri::State<Shared>, id: String) {
-    let pid = state.lock().unwrap().sessions.iter().find(|s| s["session_id"] == id.as_str()).and_then(|s| s["pid"].as_i64());
-    let Some(app) = pid.and_then(|p| owning_app(p as i32)) else { return };
+    let Some(s) = state.lock().unwrap().sessions.iter().find(|s| s["session_id"] == id.as_str()).cloned() else { return };
+    if let Some(url) = desktop_link(&s) {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+        return;
+    }
+    let Some(app) = s["pid"].as_i64().and_then(|p| owning_app(p as i32)) else { return };
     let _ = std::process::Command::new("open").arg("-a").arg(app).spawn();
 }
 
@@ -358,9 +377,10 @@ fn build_menu(app: &AppHandle, sessions: &[Value], cfg: &Config) -> tauri::Resul
         let state = match s["state"].as_str() { Some("working") => "working", Some("waiting") => "needs you", _ => "done" };
         let subs = s["subagents"].as_object().map_or(0, |o| o.len());
         let label = format!(
-            "{}{}  —  {state}{}",
+            "{}{}{}  —  {state}{}",
             s["name"].as_str().map(|n| format!("{n} · ")).unwrap_or_default(),
             s["project"].as_str().unwrap_or("?"),
+            if s["host"] == "desktop" { " (desktop)" } else { "" },
             if subs > 0 { format!(" (+{subs})") } else { String::new() }
         );
         let id = format!("session:{}", s["session_id"].as_str().unwrap_or(""));
@@ -529,7 +549,24 @@ mod tests {
         let finder: i32 = String::from_utf8_lossy(&out.stdout).trim().parse().expect("Finder is running");
         assert_eq!(owning_app(finder).as_deref(), Some("/System/Library/CoreServices/Finder.app"));
         // This test's own parent chain leads to whatever terminal ran it, or nothing under tmux/CI.
-        if let Some(app) = owning_app(std::process::id() as i32) { assert!(app.ends_with(".app"), "{app}"); println!("test runs under {app}"); }
+        if let Some(app) = owning_app(std::process::id() as i32) {
+            assert!(app.ends_with(".app"), "{app}");
+            // Under Claude desktop the bundled Claude Code copy is an .app too; the walk must go past it.
+            assert!(!app.contains("/Application Support/Claude/claude-code/"), "stopped at the bundled Claude Code: {app}");
+            println!("test runs under {app}");
+        }
+    }
+
+    #[test]
+    fn desktop_sessions_get_a_link_others_dont() {
+        let id = "local_56541c70-6462-4c47-afb1-911ab8142fd9";
+        assert_eq!(desktop_link(&json!({"host": "desktop", "host_session_id": id})).as_deref(),
+            Some("claude://code/continue?session=local_56541c70-6462-4c47-afb1-911ab8142fd9"));
+        assert_eq!(desktop_link(&json!({"host": null, "host_session_id": id})), None); // terminal
+        assert_eq!(desktop_link(&json!({"host": "desktop"})), None); // older hook: no id recorded
+        assert_eq!(desktop_link(&json!({"host": "desktop", "host_session_id": "local_"})), None);
+        assert_eq!(desktop_link(&json!({"host": "desktop", "host_session_id": "local_x&y=1"})), None);
+        assert_eq!(desktop_link(&json!({"host": "desktop", "host_session_id": "56541c70"})), None);
     }
 
     #[test]
