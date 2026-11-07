@@ -1,6 +1,6 @@
 [package]
 name = "agent-bots"
-version = "0.2.0"
+version = "0.3.0"
 description = "Desktop bots that show what your Claude Code sessions are doing"
 authors = ["Rene Merino"]
 edition = "2024"
