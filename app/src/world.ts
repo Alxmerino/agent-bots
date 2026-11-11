@@ -112,10 +112,18 @@ export class Strip {
     this.tip.style.bottom = `${8}px`;
   }
 
+  /** Moves a dragged bot's layer right away. Frames come at 5-12fps, far too slow to follow the
+   *  cursor; shifting the layer is a compositor-only change, so it can happen on every mouse move.
+   *  The bot is drawn at the layer's center, so the drawing doesn't need to change. */
+  follow(b: Bot) {
+    const l = this.layers.get(b);
+    if (l) l.c.style.transform = `translate3d(${Math.round(b.x - this.layerWidth / 2)}px, 0, 0)`;
+  }
+
   /** 12fps while anything moves (pixel-art sprite rate), 5fps when every bot is asleep, nothing when there are no bots. */
   private fps() {
     if (!this.config.show || this.bots.size === 0) return 0;
-    for (const b of this.bots.values()) if (b.state !== "idle" || b.dying || b.activity.name !== "sleeping") return 12;
+    for (const b of this.bots.values()) if (b.state !== "idle" || b.dying || b.held || b.activity.name !== "sleeping") return 12;
     return 5;
   }
 

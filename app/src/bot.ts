@@ -28,6 +28,7 @@ export class Bot {
   session: Session;
   private turn?: Activity; // this turn's working animation
   home = 0; // where the bot stood when its turn began; moving animations stay near it
+  held = false; // being dragged: the cursor sets x, animations don't move it
   private bag: Activity[] = []; // animations not played yet; refilled when empty
 
   constructor(
@@ -119,6 +120,11 @@ export class Bot {
     this.home = this.x;
   }
 
+  /** Puts the bot at x (dragging): it stays there, and pacing animations now range around it. */
+  moveTo(x: number) {
+    this.x = this.home = this.clampX(x);
+  }
+
   private next() {
     if (this.state === "idle") this.play(this.activity === A.yawn ? A.lieDown : A.sleep);
     else if (this.state === "waiting") this.play(A.alert);
@@ -129,9 +135,11 @@ export class Bot {
     if (this.dying) {
       this.deathT += dt;
     } else {
+      const x = this.x;
       this.actT += dt;
       const done = this.activity.update?.(dt, this);
       if (done || this.actT >= this.activity.duration) this.next();
+      if (this.held) this.x = x;
     }
     if (this.parent) this.follow(dt);
     for (const m of this.minis.values()) m.tick(dt);
