@@ -161,3 +161,26 @@ for (const skin of SKINS) {
 
 const footer = new Stage($("#footer-stage"), { scale: 3 });
 ["docs", "api-server", "agent-bots", "marketing-site"].forEach((p) => footer.add("idle", p));
+
+// ---------- live repo facts: latest version and star count ----------
+// Fetched at view time, not build time: the site deploys on push, before the release it describes exists.
+// Unauthenticated GitHub API (60 requests/hour per visitor IP); on any failure the page simply omits them.
+
+const REPO = "https://api.github.com/repos/Alxmerino/agent-bots";
+const getJson = (url: string) => fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
+
+getJson(REPO).then((r) => {
+  // A count of 1 or 2 reads as "nobody uses this", so it appears only from 10 up.
+  if (typeof r.stargazers_count !== "number" || r.stargazers_count < 10) return;
+  $("#stars-n").textContent = compact(r.stargazers_count);
+  $("#stars").hidden = false;
+}).catch(() => {});
+
+getJson(`${REPO}/releases/latest`).then((r) => {
+  if (typeof r.tag_name !== "string" || typeof r.html_url !== "string") return;
+  const a = document.createElement("a");
+  a.href = r.html_url;
+  a.textContent = r.tag_name;
+  $("#version").replaceChildren(a, " · ");
+}).catch(() => {});

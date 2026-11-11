@@ -61,6 +61,8 @@ a:hover { color: #4ade80; }
 .nav nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 10px 12px; min-height: 44px; display: inline-flex; align-items: center; }
 .nav nav a:hover { color: var(--fg); }
+.stars { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 2px 7px; border: 2px solid var(--border); color: var(--waiting); font: 0.8rem/1.2 var(--mono); }
+.stars[hidden] { display: none; }
 
 /* ---------- buttons ---------- */
 .btn, .pg-buttons button {
