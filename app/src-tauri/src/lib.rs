@@ -18,7 +18,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 #[serde(default)]
 struct Config {
     show: bool,
-    size: String,  // S | M | L
+    size: String,  // T | S | M | L
     speed: String, // slow | normal | fast
     subagents: bool,
     hide_when_empty: bool,
@@ -52,7 +52,7 @@ impl Config {
     /// CSS px per logical bot pixel; strip height is 40 bot pixels.
     fn strip_height(&self) -> f64 {
         let names = if self.show_names { 16.0 } else { 0.0 }; // name tags under the feet
-        40.0 * match self.size.as_str() { "S" => 2.0, "L" => 4.0, _ => 3.0 } + names
+        40.0 * match self.size.as_str() { "T" => 1.0, "S" => 2.0, "L" => 4.0, _ => 3.0 } + names
     }
 }
 
@@ -406,7 +406,7 @@ fn build_menu(app: &AppHandle, sessions: &[Value], cfg: &Config) -> tauri::Resul
         let opts: Vec<(&str, &str)> = skins.iter().map(|(i, l)| (i.as_str(), l.as_str())).collect();
         menu.append(&radio("Style", "skin", &cfg.skin, &opts)?)?;
     }
-    menu.append(&radio("Bot size", "size", &cfg.size, &[("S", "Small"), ("M", "Medium"), ("L", "Large")])?)?;
+    menu.append(&radio("Bot size", "size", &cfg.size, &[("T", "Tiny"), ("S", "Small"), ("M", "Medium"), ("L", "Large")])?)?;
     menu.append(&radio("Walk speed", "speed", &cfg.speed, &[("slow", "Slow"), ("normal", "Normal"), ("fast", "Fast")])?)?;
     menu.append(&radio("Position", "side", &cfg.side, &[("left", "Bottom left"), ("right", "Bottom right")])?)?;
     menu.append(&radio("Display", "display", &cfg.display, &[("primary", "Primary display"), ("cursor", "Follow cursor")])?)?;

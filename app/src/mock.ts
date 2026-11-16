@@ -56,7 +56,7 @@ export function startMock(onSessions: (s: Session[]) => void, onConfig: (c: Conf
     sessions.delete(s.session_id); emit();
     setTimeout(() => { sessions.set(s.session_id, s); emit(); }, 1200);
   });
-  for (const size of ["S", "M", "L"] as const) btn(`size ${size}`, () => onConfig((config = { ...config, size })));
+  for (const size of ["T", "S", "M", "L"] as const) btn(`size ${size}`, () => onConfig((config = { ...config, size })));
   for (const speed of ["slow", "normal", "fast"] as const) btn(speed, () => onConfig((config = { ...config, speed })));
   btn("subagents on/off", () => onConfig((config = { ...config, subagents: !config.subagents })));
   btn("names on/off", () => onConfig((config = { ...config, show_names: !config.show_names })));
